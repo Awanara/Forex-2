@@ -1,150 +1,67 @@
 package com.a222102452.forex2;
 
-import android.os.Bundle;
-import android.widget.TextView;
-import android.widget.Toast;
-import android.util.Log;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
-import java.util.TimeZone;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
-
-import com.loopj.android.http.AsyncHttpClient;
-import com.loopj.android.http.AsyncHttpResponseHandler;
-import cz.msebera.android.httpclient.Header;
-
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import java.text.DecimalFormat;
+import android.util.Log;
+import java.util.Map;
 
-public class MainActivity extends AppCompatActivity {
+public class ForexAdapter extends RecyclerView.Adapter<ForexViewHolder> {
 
-    private SwipeRefreshLayout _swipeRefreshLayout1;
-    private RecyclerView _recyclerView1;
-    private TextView _timestampTextView;
-
+    private JSONObject _rates;
+    private JSONArray _names;
     private Map<String, String> _currencyDescriptions;
 
+    public ForexAdapter(JSONObject rates, Map<String, String> currencyDescriptions) {
+        this._rates = rates;
+        _names = rates.names();
+        this._currencyDescriptions = currencyDescriptions;
+    }
+
+    @NonNull
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        initSwipeRefreshLayout();
-        _recyclerView1 = findViewById(R.id.recyclerView1);
-        _timestampTextView = findViewById(R.id.timestampTextView);
-
-        fetchCurrencyDescriptions();
+    public ForexViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        LayoutInflater inflater = LayoutInflater.from(parent.getContext());
+        View view = inflater.inflate(R.layout.layout_forex, parent, false);
+        return new ForexViewHolder(view);
     }
 
-    private void fetchCurrencyDescriptions() {
-        String url = "https://openexchangerates.org/api/currencies.json";
-        AsyncHttpClient client = new AsyncHttpClient();
+    @Override
+    public void onBindViewHolder(@NonNull ForexViewHolder holder, int position) {
+        try {
+            String kode = _names.get(position).toString();
+            holder.kodeTextView.setText(kode);
 
-        client.get(url, new AsyncHttpResponseHandler() {
-            @Override
-            public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
-                String jsonString = new String(responseBody);
-                try {
-                    JSONObject currenciesJson = new JSONObject(jsonString);
-                    _currencyDescriptions = new HashMap<>();
-                    Iterator<String> keys = currenciesJson.keys();
-                    while (keys.hasNext()) {
-                        String key = keys.next();
-                        String value = currenciesJson.getString(key);
-                        _currencyDescriptions.put(key, value);
-                    }
-                    bindRecyclerView();
-
-                } catch (JSONException e) {
-                    Log.e("MainActivity", "Error parsing currencies JSON: " + e.getMessage());
-                    Toast.makeText(MainActivity.this, "Error parsing currency data: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    _swipeRefreshLayout1.setRefreshing(false);
-                }
+            String description = _currencyDescriptions.get(kode);
+            if (description != null) {
+                holder.descriptionTextView.setText(description);
+            } else {
+                holder.descriptionTextView.setText("N/A");
             }
 
-            @Override
-            public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable error) {
-                String errorMessage = (responseBody != null) ? new String(responseBody) : "Unknown error";
-                Log.e("MainActivity", "Failed to fetch currencies: " + errorMessage);
-                Toast.makeText(MainActivity.this, "Failed to fetch currency data: " + errorMessage, Toast.LENGTH_LONG).show();
-                _swipeRefreshLayout1.setRefreshing(false);
-            }
-        });
+            double kurs = _rates.getDouble(kode);
+            double USD = _rates.getDouble("USD");
+            double IDR = _rates.getDouble("IDR");
+
+            double baseIDR = USD / kurs * IDR;
+
+            DecimalFormat decimalFormat = new DecimalFormat("###,##0.##");
+            String kurs_2 = decimalFormat.format(baseIDR);
+            holder.kursTextView.setText(kurs_2);
+
+        } catch (JSONException e) {
+            Log.e("ForexAdapter", "Error parsing JSON in onBindViewHolder: " + e.getMessage());
+        }
     }
 
-    private void bindRecyclerView() {
-        // GANTI INI DENGAN APP ID ANDA YANG VALID!
-        String url = "https://openexchangerates.org/api/latest.json?app_id=9e159e08becf49428c50b8d3104ab08b";
-        AsyncHttpClient asyncHttpClient = new AsyncHttpClient();
-
-        asyncHttpClient.get(url, new AsyncHttpResponseHandler() {
-            @Override
-            public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
-                String jsonString = new String(responseBody);
-                JSONObject root;
-
-                try {
-                    root = new JSONObject(jsonString);
-                } catch (JSONException e) {
-                    Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_LONG).show();
-                    _swipeRefreshLayout1.setRefreshing(false);
-                    return;
-                }
-
-                JSONObject rates;
-                long timestamp;
-
-                try {
-                    rates = root.getJSONObject("rates");
-                    timestamp = root.getLong("timestamp");
-                } catch (JSONException e) {
-                    Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
-                    _swipeRefreshLayout1.setRefreshing(false);
-                    return;
-                }
-
-                setTimestamp(timestamp);
-
-                RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(MainActivity.this);
-                ForexAdapter adapter = new ForexAdapter(rates, _currencyDescriptions);
-                _recyclerView1.setLayoutManager(layoutManager);
-                _recyclerView1.setAdapter(adapter);
-
-                _swipeRefreshLayout1.setRefreshing(false);
-            }
-
-            @Override
-            public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable error) {
-                String errorMessage = (responseBody != null) ? new String(responseBody) : "Unknown error";
-                Toast.makeText(MainActivity.this, "Failed to fetch exchange rates: " + errorMessage, Toast.LENGTH_LONG).show();
-                _swipeRefreshLayout1.setRefreshing(false);
-            }
-        });
-    }
-
-    private void setTimestamp(long timestamp) {
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-        format.setTimeZone(TimeZone.getTimeZone("Asia/Jakarta"));
-        String dateTime = format.format(new Date(timestamp * 1000));
-
-        _timestampTextView.setText("Tanggal dan Waktu (UTC): " + dateTime);
-    }
-
-    private void initSwipeRefreshLayout() {
-        _swipeRefreshLayout1 = findViewById(R.id.swipeRefreshLayout1);
-        _swipeRefreshLayout1.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
-            @Override
-            public void onRefresh() {
-                fetchCurrencyDescriptions(); // Refresh kedua data
-            }
-        });
+    @Override
+    public int getItemCount() {
+        return _names.length();
     }
 }
