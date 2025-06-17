@@ -1,67 +1,26 @@
 package com.a222102452.forex2;
 
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
+import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-import java.text.DecimalFormat;
-import android.util.Log;
-import java.util.Map;
 
-public class ForexAdapter extends RecyclerView.Adapter<ForexViewHolder> {
+public class ForexViewHolder extends RecyclerView.ViewHolder {
+    TextView kodeTextView;
+    TextView descriptionTextView;
+    TextView kursTextView;
+    TextView colonTextView;
+    TextView kursIDTextView;
 
-    private JSONObject _rates;
-    private JSONArray _names;
-    private Map<String, String> _currencyDescriptions;
+    public  ForexViewHolder(@NonNull View itemView) {
+        super(itemView);
 
-    public ForexAdapter(JSONObject rates, Map<String, String> currencyDescriptions) {
-        this._rates = rates;
-        _names = rates.names();
-        this._currencyDescriptions = currencyDescriptions;
+        kodeTextView = itemView.findViewById(R.id.kodeTextView);
+        descriptionTextView = itemView.findViewById(R.id.descriptionTextView);
+        kursTextView = itemView.findViewById(R.id.kursTextView);
+        colonTextView = itemView.findViewById(R.id.colonTextView);
+        kursIDTextView = itemView.findViewById(R.id.kursIDTextView);
     }
 
-    @NonNull
-    @Override
-    public ForexViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        LayoutInflater inflater = LayoutInflater.from(parent.getContext());
-        View view = inflater.inflate(R.layout.layout_forex, parent, false);
-        return new ForexViewHolder(view);
-    }
-
-    @Override
-    public void onBindViewHolder(@NonNull ForexViewHolder holder, int position) {
-        try {
-            String kode = _names.get(position).toString();
-            holder.kodeTextView.setText(kode);
-
-            String description = _currencyDescriptions.get(kode);
-            if (description != null) {
-                holder.descriptionTextView.setText(description);
-            } else {
-                holder.descriptionTextView.setText("N/A");
-            }
-
-            double kurs = _rates.getDouble(kode);
-            double USD = _rates.getDouble("USD");
-            double IDR = _rates.getDouble("IDR");
-
-            double baseIDR = USD / kurs * IDR;
-
-            DecimalFormat decimalFormat = new DecimalFormat("###,##0.##");
-            String kurs_2 = decimalFormat.format(baseIDR);
-            holder.kursTextView.setText(kurs_2);
-
-        } catch (JSONException e) {
-            Log.e("ForexAdapter", "Error parsing JSON in onBindViewHolder: " + e.getMessage());
-        }
-    }
-
-    @Override
-    public int getItemCount() {
-        return _names.length();
-    }
 }
